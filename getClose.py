@@ -28,30 +28,7 @@ except pymysql.MySQLError as e:
 
 logger.info('연결 성공')
 
-symbol = ['^IXIC','^FTSE','^N225','^STOXX50E','^KS11','^BVSP','^TWII','^BSESN', 'GC=F']
 
-def getClose():
-  ##FOR PROJECT
-  # now = datetime.datetime.now()
-  # today = now.strftime("%Y-%m-%d")
-  # tomorrow = now + datetime.timedelta(days=1)
-  # tomorrow = tomorrow.strftime("%Y-%m-%d")
-  ##FOR LOCAL
-  today = '2023-08-29'
-  tomorrow ='2023-08-30'
-  df_nikkei = yf.download(symbol[2], today, tomorrow)
-  df_kospi = yf.download(symbol[4], today, tomorrow)
-  df_taiwan = yf.download(symbol[6], today, tomorrow)
-  df_india = yf.download(symbol[7], today, tomorrow)
-  dataframes = {
-    'df_nikkei' : df_nikkei,
-    'df_kospi':df_kospi,
-    'df_taiwan' :df_taiwan,
-    'df_india' : df_india
-  }
-  for table_name, df in dataframes.items():
-    df.to_sql(name=table_name, con=connection, index=True, if_exists='append')
-    time.sleep(10)
-  return 0
+
 
 # getClose()

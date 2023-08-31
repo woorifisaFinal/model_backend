@@ -1,15 +1,24 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 import schedule
-
-from getClose import getClose
+from apscheduler.schedulers.background import BackgroundScheduler
+from everyday import saveTodayPortfolio, getClose
 
 app = Flask(__name__)
 
 
+
+
+# 매일 N시에 실행시킬거다
+background_scheduler = BackgroundScheduler(timezone='Asia/Seoul', daemon =True)
+background_scheduler.add_job(saveTodayPortfolio,
+                             'cron', hour='8', minute='00', id='saveTodayPortfolio')
+background_scheduler.add_job(getClose,
+                             'cron', hour='23', minute='00', id='getClose')
 @app.route('/')
 def hello_world():  # put application's code here
-  schedule.every().day.at("23:00").do(getClose())
+
   return 'Hello World!'
+
 # POST 요청을 처리하는 엔드포인트
 @app.route('/portfolio/infer', methods=['POST'])
 def infer():
@@ -49,6 +58,7 @@ def infer():
     # response.headers['Content-Type'] = 'application/json; charset=utf-8'
 
     return jsonify(response_data)
+
 
 if __name__ == "__main__":
     app.run(host="localhost", port=5000)
