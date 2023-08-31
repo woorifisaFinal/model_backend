@@ -16,7 +16,6 @@ background_scheduler.add_job(getClose,
                              'cron', hour='23', minute='00', id='getClose')
 @app.route('/')
 def hello_world():  # put application's code here
-
   return 'Hello World!'
 
 # POST 요청을 처리하는 엔드포인트
