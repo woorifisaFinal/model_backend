@@ -14,6 +14,7 @@ background_scheduler.add_job(saveTodayPortfolio,
                              'cron', hour='8', minute='00', id='saveTodayPortfolio')
 background_scheduler.add_job(getClose,
                              'cron', hour='23', minute='00', id='getClose')
+
 @app.route('/')
 def hello_world():  # put application's code here
   return 'Hello World!'

@@ -40,18 +40,23 @@ def saveTodayPortfolio():
   today = '2023-08-29'
 
 
-  b = runBlack()
-  c1, c2 = runCustom()
+  b1, b2 = runBlack()
+  b1_ = json.loads(b1)
+  b2_ = json.loads(b2)
+  # c1, c2 = runCustom()
 
-  b = pd.DataFrame([b])
-  c1 = pd.DataFrame([c1])
-  c2 = pd.DataFrame([c2])
-  df = pd.concat([b, c1, c2])
-  df['date'] = [today, today, today]
-
-  df.to_sql(name='portfolio', con=connection, index=True, if_exists='append')
+  b1 = pd.json_normalize(b1_)
+  b2 = pd.json_normalize(b2_)
+  # c1 = pd.DataFrame([c1])
+  # c2 = pd.DataFrame([c2])
+  df = pd.concat([b1, b2], ignore_index=True)
+  df['date'] = today
+  print(df)
+  print(df.info())
+  a = df.to_sql(name='portfolio', con=connection, index=True, if_exists='append',  schema='test')
+  print(a)
   return 0
-
+saveTodayPortfolio()
 def getClose():
   ##FOR PROJECT
   # now = datetime.datetime.now()
@@ -63,6 +68,7 @@ def getClose():
   tomorrow ='2023-08-30'
 
   symbol = ['^IXIC', '^FTSE', '^N225', '^STOXX50E', '^KS11', '^BVSP', '^TWII', '^BSESN', 'GC=F']
+  #전날 저장할건데 시차때문에 우선 아시아지역만
 
   df_nikkei = yf.download(symbol[2], today, tomorrow)
   df_kospi = yf.download(symbol[4], today, tomorrow)
