@@ -1,3 +1,7 @@
+'''17~20년의 수익률 데이터를 기반으로 현재 시점에서 30일간 보유하고 있을 때 최적의 포트폴리오 전략을 도출하는 전통적 기법(블랙리터만)
+view = 전망에 들어가는 데이터는 현재 시점에서 30일 후 수익률을 예측한 데이터입니다. '''
+
+
 #Usual Suspects
 import pandas as pd
 import numpy as np
@@ -13,8 +17,8 @@ import json
 
 def runBlack():
   asset_market = {
-      'us': 25483.007,
-      'uk': 2949.56,
+      'us': 40719661.400,
+      'uk': 2949.56, 
       'jp': 6017876.009,
       'euro': 5558284.855,
       'kor': 1993126.619,
@@ -26,7 +30,7 @@ def runBlack():
       'us3y': 26.03,
       'us10y': 22.935,
       'gold': 12996.0
-      } # 시가총액 (23년 7월 기준 -확인필요)
+      } # 시가총액 (23년 7월 기준)
 
   col_list = ['us', 'uk', 'jp', 'euro', 'kor', 'ind', 'tw', 'br', 'kor3y', 'kor10y', 'us3y', 'us10y', 'gold'] # list(asset_market.keys())
 

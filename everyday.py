@@ -1,6 +1,7 @@
 import pandas as pd
 
 from CustomModel import runCustom
+from AlphaModel import runAlpha
 from blackLitterman import runBlack
 import datetime
 import sys
@@ -40,23 +41,32 @@ def saveTodayPortfolio():
   today = '2023-08-29'
 
 
+  a1, a2 = runAlpha()
+
+
   b1, b2 = runBlack()
   b1_ = json.loads(b1)
   b2_ = json.loads(b2)
+
   # c1, c2 = runCustom()
+
+  a1 = pd.DataFrame(a1)
+  a2 = pd.DataFrame(a2)
 
   b1 = pd.json_normalize(b1_)
   b2 = pd.json_normalize(b2_)
   # c1 = pd.DataFrame([c1])
   # c2 = pd.DataFrame([c2])
-  df = pd.concat([b1, b2], ignore_index=True)
+  df = pd.concat([b1, b2, a1.T,a2.T])
   df['date'] = today
-  print(df)
-  print(df.info())
-  a = df.to_sql(name='portfolio', con=connection, index=True, if_exists='append',  schema='test')
-  print(a)
+  df.to_sql(name='portfolio', con=connection, index=False, if_exists='append',  schema='test')
+  connection.commit()
   return 0
+
 saveTodayPortfolio()
+
+
+
 def getClose():
   ##FOR PROJECT
   # now = datetime.datetime.now()
