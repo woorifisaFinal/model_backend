@@ -1,12 +1,14 @@
 import pandas as pd
 import numpy as np
 from stage1 import getPrediction
+import datetime
 
 
 
 def runAlpha():
     
     df_3_months = getPrediction()
+    # 한달만
 
     # 포트폴리오 생성을 위한 자산 리스트
     assets = df_3_months.columns
@@ -18,7 +20,7 @@ def runAlpha():
     port_returns = np.array([])  # 연간 수익률 배열
     port_risks = np.array([])  # 연간 리스크(변동성) 배열
 
-    lookback_period_days = 90  # 3개월치 데이터를 사용하고 싶을 때 설정 (1일당 1개 데이터를 가정)
+
     
     for i in range(num_portfolios):
         # 무작위로 포트폴리오 비중 생성
@@ -50,10 +52,45 @@ def runAlpha():
 
     # 최대 샤프 지수를 갖는 포트폴리오 선택
     max_sharpe_portfolio = portfolio_df.iloc[portfolio_df['Returns'].idxmax()]
-    max_sharpe_portfolio['type'] = '공격형'
+    return max_sharpe_portfolio
 
-    # 최소 리스크를 갖는 포트폴리오 선택
-    min_risk_portfolio = portfolio_df.iloc[portfolio_df['Risk'].idxmin()]
-    min_risk_portfolio['type'] = '안정형'
 
-    return max_sharpe_portfolio[2:], min_risk_portfolio[2:]
+def wish_date_weight(date): # date는 '$$$$-$$-$$'형식으로 받아온다
+
+    result = runAlpha()
+    stable_asset = ['kor3y','kor10y','us3y','us10y','gold']
+    risky_asset = ['us', 'uk' ,'jp',	'euro',	 'ind',	'tw',	'br','kor']
+
+    stable_weight = pd.DataFrame(columns=['kor3y','kor10y','us3y','us10y','gold'])
+    stable_sum = 0
+    risky_weight = pd.DataFrame(columns=['us', 'uk' ,'jp',	'euro',	 'ind',	'tw',	'br','kor'])
+    risky_sum = 0
+    # date의 행을 선택
+    row = result[result['date']==date]
+    stable_sum = row[stable_asset].sum(axis=1).values[0]
+    risky_sum =  row[risky_asset].sum(axis=1).values[0]
+
+    final = row.copy() #result 원본값을 그대로 보존하기 위해서
+    if stable_sum<0.4:
+
+        risky_weight.loc[date] = row.copy() # 모델의 가중치가 곧 공격형 자산비중
+        # print( risky_weight - result)
+        final[stable_asset] = row[stable_asset]*(0.4/stable_sum)
+
+        final[risky_asset] = row[risky_asset]*(0.6/risky_sum)
+        
+        stable_weight = final.loc[date] # 수정한 비중으로 안전형 자산
+
+    elif stable_sum>=0.4: 
+
+        stable_weight = row.copy() # 모델의 가중치가 곧 안전형 자산 비중
+
+        final[stable_asset] = row[stable_asset]*(0.4/stable_sum)
+        
+        final[risky_asset] = row[risky_asset]*(0.6/risky_sum)
+        
+        risky_weight = final # 수정한 비중으로 공격형 자산
+
+    stable_weight=stable_weight.reset_index(drop=True)
+    risky_weight=risky_weight.reset_index(drop=True)
+    return stable_weight, risky_weight
