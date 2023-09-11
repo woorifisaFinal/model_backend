@@ -1,5 +1,15 @@
 def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return stable_weight, risky_weight  # date는 '$$$$-$$-$$'형식으로 받아온다
     
+    import numpy as np
+    import pandas as pd
+    import tensorflow as tf
+    import tensorflow.keras.backend as K
+    from tqdm.auto import tqdm
+    from tensorflow.keras import layers
+    from tensorflow.keras.layers import LSTM, Flatten, Dense
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.callbacks import ReduceLROnPlateau
+
     def sharpe_loss(y_true, y_pred):
         """
         y_true : window size만큼의 실제 종가
@@ -101,12 +111,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         return x_data, y_data, portfolio_date
 
-    # from tensorflow.keras.callbacks import ModelCheckpoint  # 우리가 history 변수에 임의로 저장해왔던 것처럼
-    # # 모델이 학습을 하면서 어떤 특이점을 만날 때마다 누적해서 저장해주는 콜백
-    import tensorflow as tf
-    from tensorflow.keras.callbacks import CSVLogger
-    from tensorflow.keras.callbacks import ReduceLROnPlateau
-
+    # # 모델이 학습을 하면서 성능이 2epoch 동안 개선되지 않을 경우 최소1e-6까지 learning rate를 0.2배하는 콜백
     # 사용자 정의 ReduceLROnPlateau 콜백 클래스
     class CustomReduceLROnPlateau(tf.keras.callbacks.Callback):
         def __init__(self, factor=0.2, patience=2, min_lr=1e-6):
@@ -218,18 +223,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     ####실행코드
 
     # Ref : https://github.com/shilewenuw/deep-learning-portfolio-optimization/blob/main/Model.py
-    import numpy as np
-    import pandas as pd
-    import tensorflow as tf
-    import tensorflow.keras.backend as K
-    from tqdm.auto import tqdm
-    from tensorflow.keras import layers
-    from tensorflow.keras.layers import LSTM, Flatten, Dense
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, LambdaCallback
-    from tensorflow.keras.callbacks import CSVLogger
-    from tensorflow.keras.callbacks import ReduceLROnPlateau
-
+   
     pd.options.display.float_format = '{:.5f}'.format
     pd.options.display.max_rows = None
     np.set_printoptions(precision=6, suppress=True)
