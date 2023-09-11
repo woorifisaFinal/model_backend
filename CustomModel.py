@@ -141,9 +141,9 @@ class CustomReduceLROnPlateau(tf.keras.callbacks.Callback):
 # 사용자 정의 콜백 객체 생성
 custom_reduce_lr = CustomReduceLROnPlateau(factor=0.2, patience=2, min_lr=1e-6)
 
-log_filename2 = '/content/drive/MyDrive/ITStudy/logs/training_log_LR_21_val_class_1e-6_epoch10_final.csv'
+# log_filename2 = '/content/drive/MyDrive/ITStudy/logs/training_log_LR_21_val_class_1e-6_epoch10_final.csv'
 
-csv_logger = CSVLogger(log_filename2)
+# csv_logger = CSVLogger(log_filename2) #logger는 남길 필요 없으므로 주석처리
 
 # Ref : https://github.com/shilewenuw/deep-learning-portfolio-optimization/blob/main/Model.py
 import numpy as np
@@ -196,7 +196,7 @@ model = build_model(x_data[0].shape, y_data.shape[2])
 history = model.fit(x_data,y_data,
                 validation_data = (x_valid,y_valid),
                 # sample_weight = np.tile(w,GRP),
-                batch_size=4, epochs=10, verbose="auto", callbacks = [csv_logger,custom_reduce_lr])
+                batch_size=4, epochs=10, verbose="auto", callbacks = [custom_reduce_lr])
 
 
 # 최대 -sharpe 값과 그 때의 y_pred 반환
