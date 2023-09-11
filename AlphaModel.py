@@ -1,47 +1,15 @@
 import pandas as pd
 import numpy as np
+from stage1 import getPrediction
 
 
 
 def runAlpha():
-    data = pd.read_csv("psuedo_2022_prediction.csv")
-
-    col_list = ['us', 'uk', 'jp', 'euro', 'kor', 'ind', 'tw', 'br', 'kor3y', 'kor10y', 'us3y', 'us10y', 'gold'] 
-
-    rename_dict = {
-        'kospi':"kor",
-        'nasdaq':"us",
-        'euro_stoxx':"euro",
-        'ftse':"uk",
-        'nikkei':"jp",
-        'korea_bond_03':"kor3y",
-        'korea_bond_10':"kor10y",
-        'america_bond_03':"us3y",
-        'america_bond_10':"us10y",
-        'gold':"gold",
-        'brazil':"br",
-        'taiwan':"tw",
-        'india':"ind"
-        }
-
-    data.set_index("date", inplace=True)
-    data.rename(columns=rename_dict, inplace=True)
-    data = data[col_list]
-
-
-    # 기간 설정
-    lookback_period_months = 3  # 3개월치 데이터를 사용하고 싶을 때 설정
-
-    # 기간 계산
-    end_date = pd.Timestamp(2022,12,31)
-    start_date = end_date - pd.DateOffset(months=lookback_period_months)
-
-    # 데이터 추출
-    df_3_months = data.loc[(data.index > start_date.strftime('%Y-%m-%d')) & (data.index <= end_date.strftime('%Y-%m-%d'))]
-
+    
+    df_3_months = getPrediction()
 
     # 포트폴리오 생성을 위한 자산 리스트
-    assets = data.columns
+    assets = df_3_months.columns
 
     # 포트폴리오 생성 횟수
     num_portfolios = 10000

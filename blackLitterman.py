@@ -13,6 +13,8 @@ from pypfopt import black_litterman, risk_models
 from pypfopt import BlackLittermanModel, plotting
 from pypfopt import DiscreteAllocation
 
+from stage1 import getPrediction
+
 import json
 
 def runBlack():
@@ -77,21 +79,8 @@ def runBlack():
   lambd = black_litterman.market_implied_risk_aversion(asset_market)
   market_prior = black_litterman.market_implied_prior_returns(asset_market, lambd, Sigma)
 
-  viewdict = {
-    "kor": 0.001240,
-    "us": 0.001719,
-    "euro":0.000017,
-    "uk": -0.000414,
-    "jp": 0.000723,
-    "kor3y":0.000038,
-    "kor10y": 0.000027,
-    "us3y":0.000083,
-    "us10y":0.000334,
-    "gold":0.000972,
-    "br":0.000508,
-    "tw": 0.000877,
-    "ind":0.000752
-} #21년 예측 수익률
+  
+  viewdict = getPrediction().mean()
 
 
   # bl = BlackLittermanModel(Sigma, pi=market_prior, absolute_views=viewdict)
