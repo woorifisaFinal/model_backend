@@ -237,29 +237,42 @@ predictions_df = predictions_df[col_list]
 
 portfolio_valid_date_df =pd.DataFrame(portfolio_valid_date, columns = ['date'])
 
+portfolio_valid_date_df['date'] = pd.to_datetime(portfolio_valid_date_df['date']) # 날짜별로 추출하기 위해 date타입으로 변환 
 result = pd.concat([predictions_df, portfolio_valid_date_df],axis = 1)
 
 result.set_index(result.columns[-1], inplace=True)
 
-stable_asset = ['kor3y','kor10y','us3y','us10y','gold']
-risky_asset = ['us', 'uk' ,'jp',	'euro',	 'ind',	'tw',	'br','kor']
+def wish_date_weight(date): # date는 '$$$$-$$-$$'형식으로 받아온다
 
-stable_sum = result[stable_asset].sum(axis=1)
-risky_sum = result[risky_asset].sum(axis=1)
+    stable_asset = ['kor3y','kor10y','us3y','us10y','gold']
+    risky_asset = ['us', 'uk' ,'jp',	'euro',	 'ind',	'tw',	'br','kor']
 
+    stable_sum.loc[date] = result.loc[date][stable_asset].sum(axis=0)
+    risky_sum.loc[date] = result.loc[date][risky_asset].sum(axis=0)
+    
 
-if stable_sum[0]<0.4:
+    final = result.copy() #result 원본값을 그대로 보존하기 위해서
+    if stable_sum.loc[date]<0.4:
+    
+        risky_weight.loc[date] = result.loc[date].copy() # 모델의 가중치가 곧 공격형 자산비중
+        # print( risky_weight - result)
+        final.loc[date][stable_asset] = final.loc[date][stable_asset]*(0.4/stable_sum.loc[date])
+    
+        final.loc[date][risky_asset] = final.loc[date][risky_asset]*(0.6/risky_sum.loc[date])
+       
+        stable_weight = final.loc[date] # 수정한 비중으로 안전형 자산
 
-    risky_weight = result.copy() # 모델의 가중치가 곧 공격형 자산비중
-    result[stable_asset] = result[stable_asset]*(0.4/stable_sum[0])
-    result[risky_asset] = result[risky_asset]*(0.6/risky_sum[0])
-    stable_weight = result # 수정한 비중으로 안전형 자산
+    elif stable_sum.loc[date]>0.4:
+    
+        stable_weight = result.loc[date].copy() # 모델의 가중치가 곧 안전형 자산 비중
+   
+        final.loc[date][stable_asset] = final.loc[date][stable_asset]*(0.4/stable_sum.loc[date])
+        
+        final.loc[date][risky_asset] = final.loc[date][risky_asset]*(0.6/risky_sum.loc[date])
+       
+        risky_weight = final.loc[date] # 수정한 비중으로 공격형 자산
 
-elif stable_sum[0]>0.4:
+    return stable_weight, risky_weight
 
-    stable_weight = result.copy() # 모델의 가중치가 곧 안전형 자산 비중
-    result[stable_asset] = result[stable_asset]*(0.4/stable_sum[0])
-    result[risky_asset] = result[risky_asset]*(0.6/risky_sum[0])
-    risky_weight = result # 수정한 비중으로 공격형 자산
+result.to_json("/content/drive/MyDrive/ITStudy/파이널프젝/model_weight.json") #risky_weight, stable_weight 으로 df명 변경해서 출력할 것
 
-result.to_json("/content/drive/MyDrive/ITStudy/파이널프젝/model_weight.json")
