@@ -262,7 +262,7 @@ def wish_date_weight(date): # date는 '$$$$-$$-$$'형식으로 받아온다
        
         stable_weight = final.loc[date] # 수정한 비중으로 안전형 자산
 
-    elif stable_sum.loc[date]>0.4:
+    elif stable_sum.loc[date]>=0.4: 
     
         stable_weight = result.loc[date].copy() # 모델의 가중치가 곧 안전형 자산 비중
    
