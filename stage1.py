@@ -6,7 +6,7 @@ def getPrediction():
 
 
     # 기간 설정
-    lookback_period_months = 3  # 3개월치 데이터를 사용하고 싶을 때 설정
+    lookback_period_months = 1  # 1개월치 데이터를 사용하고 싶을 때 설정
 
     # 기간 계산
     end_date = pd.Timestamp(2022,12,31)
@@ -14,6 +14,6 @@ def getPrediction():
 
 
     # 데이터 추출
-    df_3_months = data.loc[(data.index > start_date.strftime('%Y-%m-%d')) & (data.index <= end_date.strftime('%Y-%m-%d'))]
-    return df_3_months
+    df_1_months = data.loc[(data.index > start_date.strftime('%Y-%m-%d')) & (data.index <= end_date.strftime('%Y-%m-%d'))]
+    return df_1_months
 

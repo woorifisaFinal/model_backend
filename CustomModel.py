@@ -67,6 +67,8 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
         # debbuging Tips https://keras.io/examples/keras_recipes/debugging_tips/#tip-3-to-debug-what-happens-during-fit-use-runeagerlytrue
+
+        tf.keras.saving.get_custom_objects()['sharpe_loss'] = sharpe_loss
         model.compile(loss=sharpe_loss, optimizer=opt) # run_eagerly=True
 
 
@@ -151,7 +153,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     # csv_logger = CSVLogger(log_filename2) #logger는 남길 필요 없으므로 주석처리
 
     # 모델 추론 후 후처리 #컬럼명 수정과 날짜별 indexing
-    def prediction_preprocess(prediction):
+    def prediction_postprocess(prediction):
         prediction_df = pd.DataFrame(prediction)
 
         rename_dict = {
@@ -176,10 +178,10 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         prediction_df = prediction_df[col_list]
 
-        portfolio_valid_date_df =pd.DataFrame(portfolio_valid_date, columns = ['date'])
+        portfolio_test_date_df =pd.DataFrame(portfolio_test_date, columns = ['date'])
 
-        portfolio_valid_date_df['date'] = pd.to_datetime(portfolio_valid_date_df['date']) # 날짜별로 추출하기 위해 date타입으로 변환 
-        result = pd.concat([prediction_df, portfolio_valid_date_df],axis = 1)
+        portfolio_test_date_df['date'] = pd.to_datetime(portfolio_test_date_df['date']) # 날짜별로 추출하기 위해 date타입으로 변환 
+        result = pd.concat([prediction_df, portfolio_test_date_df],axis = 1)
 
         result.set_index(result.columns[-1], inplace=True)
        
@@ -192,100 +194,139 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     
         stable_asset = ['kor3y','kor10y','us3y','us10y','gold']
         risky_asset = ['us', 'uk' ,'jp',	'euro',	 'ind',	'tw',	'br','kor']
-        
-        stable_sum = post_prediction.loc[date][stable_asset].sum(axis=0)
-        risky_sum = post_prediction.loc[date][risky_asset].sum(axis=0)
+            
+        stable_weight = pd.DataFrame(columns=['kor3y','kor10y','us3y','us10y','gold'])
+        stable_sum = 0
+        risky_weight = pd.DataFrame(columns=['us', 'uk' ,'jp',	'euro',	 'ind',	'tw',	'br','kor'])
+        risky_sum = 0
 
+        # date의 행을 선택
+        row = post_prediction[post_prediction['date']==date]
+        stable_sum = row[stable_asset].sum(axis=1).values[0]
+        risky_sum =  row[risky_asset].sum(axis=1).values[0]
 
-        final = post_prediction.copy() #post_prediction 원본값을 그대로 보존하기 위해서
+        final = row.copy() #post_prediction 원본값을 그대로 보존하기 위해서
         if stable_sum<0.4:
         
-            risky_weight.loc[date] = post_prediction.loc[date].copy() # 모델의 가중치가 곧 공격형 자산비중
-            # print( risky_weight - post_prediction)
-            final.loc[date][stable_asset] = final.loc[date][stable_asset]*(0.4/stable_sum)
+            risky_weight = row.copy() # 모델의 가중치가 곧 공격형 자산비중
+            # print( risky_weight - result)
+            final[stable_asset] = row[stable_asset]*(0.4/stable_sum)
 
-            final.loc[date][risky_asset] = final.loc[date][risky_asset]*(0.6/risky_sum)
-
-            stable_weight = final.loc[date] # 수정한 비중으로 안전형 자산
+            final[risky_asset] = row[risky_asset]*(0.6/risky_sum)
+            
+            stable_weight = final # 수정한 비중으로 안전형 자산
 
         elif stable_sum>=0.4: 
         
-            stable_weight = post_prediction.loc[date].copy() # 모델의 가중치가 곧 안전형 자산 비중
+            stable_weight = row.copy() # 모델의 가중치가 곧 안전형 자산 비중
 
-            final.loc[date][stable_asset] = final.loc[date][stable_asset]*(0.4/stable_sum)
-
-            final.loc[date][risky_asset] = final.loc[date][risky_asset]*(0.6/risky_sum)
-
-            risky_weight = final.loc[date] # 수정한 비중으로 공격형 자산
+            final[stable_asset] = row[stable_asset]*(0.4/stable_sum)
+            
+            final[risky_asset] = row[risky_asset]*(0.6/risky_sum)
+            
+            risky_weight = final # 수정한 비중으로 공격형 자산
 
         return stable_weight, risky_weight
 
     ####실행코드
+    def train_and_save():
+        # Ref : https://github.com/shilewenuw/deep-learning-portfolio-optimization/blob/main/Model.py
 
-    # Ref : https://github.com/shilewenuw/deep-learning-portfolio-optimization/blob/main/Model.py
-   
+        pd.options.display.float_format = '{:.5f}'.format
+        pd.options.display.max_rows = None
+        np.set_printoptions(precision=6, suppress=True)
+        # setting the seed allows for reproducible results
+        np.random.seed(123)
+
+        #### 각 자산별 Close 받아오기
+        df = pd.read_csv("total_17_22.csv",index_col=0)
+
+        train = df[df.index<('2021')]
+        # valid = df[df.index>=('2021')]
+        valid = df[(df.index>=('2021')) & (df.index<('2022'))]
+        
+
+        # valid = pd.read_csv("/content/stage1_prediction_22.csv",index_col=0)
+        # valid[:] = np.random.randint(100, 2000, size=(valid.shape)).astype(np.float32)
+
+
+        # window_size = 50
+        lookback_window = 50
+        lookahead_window = 30
+        # lookahead_size = 90
+
+        # x_data, y_data = make_data(train, window_size)
+        x_data, y_data, portfolio_train_date = make_data(train, lookback_window, lookahead_window)
+        # logger.info(f"!!Train data infoi!! \n  x_data.shape : {x_data.shape} \t y_data.shape : {y_data.shape}")
+
+
+        ### STANDARIZE
+        # x_data,y_data = scaler(x_data,y_data, cfg.base, is_train=True)
+
+        # X_train, X_valid, y_train, y_valid = train_test_split(x_data, y_data, shuffle=True,random_state=cfg.base.seed, test_size=0.2)
+        x_valid, y_valid, portfolio_valid_date = make_data(valid, lookback_window, lookahead_window)
+
+
+        ### 모델
+        model = build_model(x_data[0].shape, y_data.shape[2])
+
+        # 사용자 정의 콜백 객체 생성
+        custom_reduce_lr = CustomReduceLROnPlateau(factor=0.2, patience=2, min_lr=1e-6)
+
+        ### 학습
+        history = model.fit(x_data,y_data,
+                        validation_data = (x_valid,y_valid),
+                        # sample_weight = np.tile(w,GRP),
+                        batch_size=4, epochs=10, verbose="auto", callbacks = [custom_reduce_lr])
+
+        ### 모델 저장
+
+        def save_model(model, filename="model.h5"):
+            model.save(filename)
+
+        # 학습 후 모델 저장
+        
+        save_model(model, "model.h5")
+    
+
+
     pd.options.display.float_format = '{:.5f}'.format
     pd.options.display.max_rows = None
     np.set_printoptions(precision=6, suppress=True)
     # setting the seed allows for reproducible results
     np.random.seed(123)
 
-    #### 각 자산별 Close 받아오기
-    df = pd.read_csv("/content/drive/MyDrive/ITStudy/파이널프젝/total_17_22.csv",index_col=0)
-
-    train = df[df.index<('2021')]
-    # valid = df[df.index>=('2021')]
-    valid = df[(df.index>=('2021')) & (df.index<('2022'))]
-
-    # valid = pd.read_csv("/content/stage1_prediction_22.csv",index_col=0)
-    # valid[:] = np.random.randint(100, 2000, size=(valid.shape)).astype(np.float32)
-
-
-    # window_size = 50
+    df = pd.read_csv("total_17_22.csv",index_col=0)
+    test = df[df.index>=('2022')]
     lookback_window = 50
     lookahead_window = 30
-    # lookahead_size = 90
+    x_test, y_test, portfolio_test_date= make_data(test, lookback_window, lookahead_window)
+    # portfolio_test_date = x_test['date']
+    # print(portfolio_test_date)
 
-    # x_data, y_data = make_data(train, window_size)
-    x_data, y_data, portfolio_train_date = make_data(train, lookback_window, lookahead_window)
-    # logger.info(f"!!Train data infoi!! \n  x_data.shape : {x_data.shape} \t y_data.shape : {y_data.shape}")
+    # print(x_test)
 
-
-    ### STANDARIZE
-    # x_data,y_data = scaler(x_data,y_data, cfg.base, is_train=True)
-
-    # X_train, X_valid, y_train, y_valid = train_test_split(x_data, y_data, shuffle=True,random_state=cfg.base.seed, test_size=0.2)
-    x_valid, y_valid, portfolio_valid_date = make_data(valid, lookback_window, lookahead_window)
-
-    ### 모델
-    model = build_model(x_data[0].shape, y_data.shape[2])
-
-    # 사용자 정의 콜백 객체 생성
-    custom_reduce_lr = CustomReduceLROnPlateau(factor=0.2, patience=2, min_lr=1e-6)
-
-    ### 학습
-    history = model.fit(x_data,y_data,
-                    validation_data = (x_valid,y_valid),
-                    # sample_weight = np.tile(w,GRP),
-                    batch_size=4, epochs=10, verbose="auto", callbacks = [custom_reduce_lr])
-
-    ### 모델 저장
-    # model.save_weights(f"{cfg.base.task_name}_{cfg.base.model_name}_{cfg.base.exp_name}.h5")
-    # model.save_weights("model_w.h5")
-    # model.load_weights(INFER_FROM_PATH + f'GRU_f{fold}_v{VER}.h5')
-
+    # 모델 불러오기
+    loaded_model = tf.keras.models.load_model("model.h5", custom_objects={'sharpe_loss': sharpe_loss})
+    
     #### 모델 추론
-    predictions = model.predict(x_valid)
+    predictions = loaded_model.predict(x_test)
 
     #### 추론값 후처리
-
-    post_predictions = prediction_preprocess(predictions) 
+    
+    post_predictions = prediction_postprocess(predictions) 
 
     #### 성향별 모델 가중치 출력
 
+    # print(post_predictions) 
+    post_predictions = post_predictions.reset_index()
     stable_weight, risky_weight = wish_date_weight(post_predictions,date)
+    
+    
+    return stable_weight.drop("date", axis=1), risky_weight.drop("date", axis=1)
 
 
-    # result.to_json("/content/drive/MyDrive/ITStudy/파이널프젝/model_weight.json") #risky_weight, stable_weight 으로 df명 변경해서 출력할 것
-
-    return stable_weight, risky_weight
+# date = "2022-08-30"
+# a, b = custom_model(date)
+# print(a.info())
+# print(b.drop("date", axis=1))

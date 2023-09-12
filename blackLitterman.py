@@ -61,10 +61,10 @@ def runBlack():
 
 
   def get_excess_returns():
-      # 2020년 수익률
+      # 2022년 수익률
       original_closes_data = pd.read_csv("./total_17_22.csv", index_col=0)
       excess_returns = original_closes_data.pct_change().dropna(axis=0) # 자산 수익률 - 무위험 수익률 => 초과 수익률, but 무위험 수익률을 꼭 연산하지 않아도 된다.
-      condition = ("2020"<=excess_returns.index ) * (excess_returns.index <"2021")
+      condition = ("2021-11-30"<=excess_returns.index ) * (excess_returns.index <"2022-11-30")
       excess_returns = excess_returns[condition]
       excess_returns.rename(columns=rename_dict, inplace=True)
       excess_returns = excess_returns[col_list]
@@ -94,12 +94,16 @@ def runBlack():
   ef.add_objective(objective_functions.L2_reg)
   ef.max_sharpe()
   weights = ef.clean_weights()
-  weights['type'] = '위험형'
+#   weights = weights.astype('float')
+#   weights['type'] = 'B/공격형'
+#   weights['type'] = weights['type'].astype(str)
 
   ef_ = EfficientFrontier(ret_bl, S_bl)
   ef_.min_volatility()
   weights_ = ef_.clean_weights()
-  weights_['type'] = '안정형'
+#   weights_ = weights.astype('float')
+#   weights_['type'] = 'B/안정형'
+#   weights_['type'] = weights_['type'].astype(str)
 
   result1 = json.dumps(weights, ensure_ascii=False, sort_keys=False)
   result2 = json.dumps(weights_, ensure_ascii=False, sort_keys=False)
