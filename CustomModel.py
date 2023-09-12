@@ -151,7 +151,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     # csv_logger = CSVLogger(log_filename2) #logger는 남길 필요 없으므로 주석처리
 
     # 모델 추론 후 후처리 #컬럼명 수정과 날짜별 indexing
-    def prediction_preprocess(prediction):
+    def prediction_postprocess(prediction):
         prediction_df = pd.DataFrame(prediction)
 
         rename_dict = {
@@ -279,7 +279,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
     #### 추론값 후처리
 
-    post_predictions = prediction_preprocess(predictions) 
+    post_predictions = prediction_postprocess(predictions) 
 
     #### 성향별 모델 가중치 출력
 
