@@ -228,6 +228,50 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         return stable_weight, risky_weight
 
+
+    def get_from_rds():
+
+    
+    # !pip install pymysql
+
+    import pymysql
+    import pandas as pd
+    import warnings  # 인터프리터가 내는 모든 경고메시지를 출력하지 않기
+    warnings.simplefilter(action='ignore') # Ignore warnings
+
+
+    # RDS 인스턴스 정보 설정
+    rds_host = 'team5-db.cvqn3ewwzknb.ap-northeast-2.rds.amazonaws.com'
+    db_name = 'woorifisa'
+    db_user = 'admin'
+    db_password = 'woorifisa'
+    db_port= 3306
+
+    conn = pymysql.connect(
+        host=rds_host,     # MySQL Server Address
+        port=db_port,          # MySQL Server Port
+        user=db_user,      # MySQL username
+        passwd=db_password,    # password for MySQL username
+        db=db_name,   # Database name
+        charset='utf8mb4'
+    )
+
+    df=pd.read_sql_query('''select * FROM test.symboltest order by Date DESC 
+LIMIT 50;''',conn)
+
+    # df = df.drop('index',axis=1)
+
+    df = df.sort_values('Date')
+    df.rename(columns={'Date':'date'},inplace=True)
+    df = df.set_index('date')
+
+    df = df.interpolate()
+
+    df = df.fillna(method='bfill')
+
+
+    return df
+
     ####실행코드
     def train_and_save():
         # Ref : https://github.com/shilewenuw/deep-learning-portfolio-optimization/blob/main/Model.py
@@ -296,7 +340,9 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     # setting the seed allows for reproducible results
     np.random.seed(123)
 
-    df = pd.read_csv("total_17_22.csv",index_col=0)
+    
+    # df = pd.read_csv("total_17_22.csv",index_col=0)
+    df = get_from_rds()
     test = df[df.index>=('2022')]
     lookback_window = 50
     lookahead_window = 30
