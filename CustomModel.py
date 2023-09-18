@@ -1,5 +1,5 @@
 def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return stable_weight, risky_weight  # date는 '$$$$-$$-$$'형식으로 받아온다
-    
+    # 데이터셋의 가장 최근 날짜만 입력 가능 #'2023-09-12'까지 있다면 '2023-09-12'만 처리됨 #이전 날짜도 처리하려면 get_from_rds()에서 가져오는 row 갯수 수정
     import numpy as np
     import pandas as pd
     import tensorflow as tf
@@ -113,6 +113,36 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         return x_data, y_data, portfolio_date
 
+    ####total_sample_num 1로 수정, lookahead 필요 없으므로 y_data 주석 처리, portfolio_date.append 파라미터 df.index[standard_day-1] 로 수정 
+    def make_test_data(df_, lookback_window, lookahead_window):
+
+       df = df_.copy()
+       # interleave로 해봐도 될 듯
+       # data with returns
+       # data_w_ret = np.concatenate([ df.values[1:], df.pct_change().values[1:] ], axis=1)
+       # df = df.iloc[1:] #.values
+       data_w_ret = np.dstack([df.values[1:], df.pct_change().values[1:]])
+       df = df.iloc[1:] #.values
+       data_w_ret = data_w_ret.reshape(df.shape[0],-1)
+       # total_sample_num = df.shape[0]-window_size+1
+       total_sample_num = 1 # 데이터셋 50개 배치size 50이므로 sample_num 값은 1 
+       x_data = np.zeros((total_sample_num, lookback_window, data_w_ret.shape[1]))
+       # unsupervised 방식이지만 sharpe에서 활용하도록 작성
+       #  y_data = np.zeros((total_sample_num, lookahead_window, df.shape[1]))
+       portfolio_date = []
+       # for idx in tqdm(range(total_sample_num)):
+       # standard_day를 기준으로 -lookback_window만큼 뒤를 보고, lookahead_window만큼 앞을 보기 위해 for문 조정
+       # 예전 idx를 standard_day로 바꾼 것
+       for idx, standard_day in tqdm(enumerate(range(lookback_window, total_sample_num+lookback_window)), total=total_sample_num):
+        
+           # x_data[idx,] = data_w_ret[idx:idx+window_size]
+          x_data[idx] = data_w_ret[standard_day-lookback_window:standard_day]
+          #  y_data[idx,] = df[standard_day:standard_day+lookahead_window]
+          #인덱스는 0~49일때 50
+          portfolio_date.append(df.index[standard_day-1])
+           # portfoilo_day.append
+       return x_data, portfolio_date
+
     # # 모델이 학습을 하면서 성능이 2epoch 동안 개선되지 않을 경우 최소1e-6까지 learning rate를 0.2배하는 콜백
     # 사용자 정의 ReduceLROnPlateau 콜백 클래스
     class CustomReduceLROnPlateau(tf.keras.callbacks.Callback):
@@ -153,30 +183,31 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     # csv_logger = CSVLogger(log_filename2) #logger는 남길 필요 없으므로 주석처리
 
     # 모델 추론 후 후처리 #컬럼명 수정과 날짜별 indexing
+    # 데이터셋 컬럼 순서 수정
     def prediction_postprocess(prediction):
         prediction_df = pd.DataFrame(prediction)
 
         rename_dict = {
-            0:"kor",
-            1:"us",
-            2:"euro",
-            3:"uk",
-            4:"jp",
-            5:"kor3y",
-            6:"kor10y",
-            7:"us3y",
-            8:"us10y",
-            9:"gold",
-            10:"br",
-            11:"tw",
-            12:"ind"
+            0:"us",
+            1:"uk",
+            2:"jp",
+            3:"euro",
+            4:"kor",
+            5:"ind",
+            6:"tw",
+            7:"br",
+            8:"gold",
+            9:"kor3y",
+            10:"kor10y",
+            11:"us3y",
+            12:"us10y"
             }
 
-        col_list = ['us', 'uk', 'jp', 'euro', 'kor', 'ind', 'tw', 'br', 'kor3y', 'kor10y', 'us3y', 'us10y', 'gold']
+        # col_list = ['us', 'uk', 'jp', 'euro', 'kor', 'ind', 'tw', 'br', 'kor3y', 'kor10y', 'us3y', 'us10y', 'gold']
 
         prediction_df.rename(columns = rename_dict,inplace = True)
 
-        prediction_df = prediction_df[col_list]
+        # prediction_df = prediction_df[col_list]
 
         portfolio_test_date_df =pd.DataFrame(portfolio_test_date, columns = ['date'])
 
@@ -189,7 +220,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         return post_prediction
 
-    #성향별 모델 출력 # date는 '$$$$-$$-$$'형식으로 받아온다
+    #성향별 모델 출력 # date는 '$$$$-$$-$$'형식으로 받아온다 #오늘 날짜만 입력 가능
     def wish_date_weight(post_prediction,date): 
     
         stable_asset = ['kor3y','kor10y','us3y','us10y','gold']
@@ -228,6 +259,50 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
 
         return stable_weight, risky_weight
 
+    #### 마지막 행에서 51개의 데이터셋을 가져옴, 51개인 이유는 make_test_data 에서 제일 첫번재 행은 제외하므로
+    def get_from_rds():
+
+    
+        # !pip install pymysql
+
+        import pymysql
+        import pandas as pd
+        import warnings  # 인터프리터가 내는 모든 경고메시지를 출력하지 않기
+        warnings.simplefilter(action='ignore') # Ignore warnings
+
+
+        # RDS 인스턴스 정보 설정
+        rds_host = 'team5-db.cvqn3ewwzknb.ap-northeast-2.rds.amazonaws.com'
+        db_name = 'woorifisa'
+        db_user = 'admin'
+        db_password = 'woorifisa'
+        db_port= 3306
+
+        conn = pymysql.connect(
+            host=rds_host,     # MySQL Server Address
+            port=db_port,          # MySQL Server Port
+            user=db_user,      # MySQL username
+            passwd=db_password,    # password for MySQL username
+            db=db_name,   # Database name
+            charset='utf8mb4'
+        )
+
+        df=pd.read_sql_query('''select * FROM woorifisa.symboltest order by Date DESC 
+        LIMIT 51;''',conn)
+
+        df = df.drop('index',axis=1)
+
+        df = df.sort_values('date')
+        # df.rename(columns={'Date':'date'},inplace=True)
+        df = df.set_index('date')
+
+        df = df.interpolate()
+
+        df = df.fillna(method='bfill')
+
+
+        return df
+
     ####실행코드
     def train_and_save():
         # Ref : https://github.com/shilewenuw/deep-learning-portfolio-optimization/blob/main/Model.py
@@ -239,7 +314,7 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
         np.random.seed(123)
 
         #### 각 자산별 Close 받아오기
-        df = pd.read_csv("total_17_22.csv",index_col=0)
+        df = pd.read_csv("/content/drive/MyDrive/ITStudy/파이널프젝/total_17_22.csv",index_col=0)
 
         train = df[df.index<('2021')]
         # valid = df[df.index>=('2021')]
@@ -279,16 +354,18 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
                         # sample_weight = np.tile(w,GRP),
                         batch_size=4, epochs=10, verbose="auto", callbacks = [custom_reduce_lr])
 
-        ### 모델 저장
+        # 모델 저장
 
-        def save_model(model, filename="model.h5"):
+        def save_model(model,filename="model.h5"):
             model.save(filename)
 
         # 학습 후 모델 저장
         
         save_model(model, "model.h5")
     
-
+      # tf.keras.saving.save_model(
+      #     model, filepath, overwrite=True, save_format=None, **kwargs
+      # )
 
     pd.options.display.float_format = '{:.5f}'.format
     pd.options.display.max_rows = None
@@ -296,35 +373,45 @@ def custom_model(date): #원하는 날짜의 성향별 가중치 출력 #return 
     # setting the seed allows for reproducible results
     np.random.seed(123)
 
-    df = pd.read_csv("total_17_22.csv",index_col=0)
-    test = df[df.index>=('2022')]
-    lookback_window = 50
-    lookahead_window = 30
-    x_test, y_test, portfolio_test_date= make_data(test, lookback_window, lookahead_window)
+    #### 학습 후 저장
+    train_and_save()
+    
+    #############rds에서 df 받아오면서 이전 코드 주석처리
+    # df = pd.read_csv("total_17_22.csv",index_col=0)
+    
+    # test = df[df.index>=('2022')]
+    # lookback_window = 50
+    # lookahead_window = 30
+    # x_test, y_test, portfolio_test_date= make_data(test, lookback_window, lookahead_window)
     # portfolio_test_date = x_test['date']
     # print(portfolio_test_date)
-
     # print(x_test)
+    #################
 
-    # 모델 불러오기
-    loaded_model = tf.keras.models.load_model("model.h5", custom_objects={'sharpe_loss': sharpe_loss})
+    #### 모델 불러오기
+    loaded_model = tf.keras.models.load_model("/content/drive/MyDrive/ITStudy/파이널프젝/model/model.h5", custom_objects={'sharpe_loss': sharpe_loss})
     
-    #### 모델 추론
-    predictions = loaded_model.predict(x_test)
+    #### rds에서 test 데이터 불러오기
+    now = get_from_rds()
 
-    #### 추론값 후처리
+    #### test데이터 (1,50,26) (total sample number, lookback window, columns 갯수*2), make_test_data()는 make_data()함수를 수정해서 정의
+
+    now,portfolio_test_date = make_test_data(now,50,30)
+    #### 모델 추론
+    predictions = loaded_model.predict(now)
+
+    # #### 추론값 후처리
     
     post_predictions = prediction_postprocess(predictions) 
 
-    #### 성향별 모델 가중치 출력
+    # #### 성향별 모델 가중치 출력
 
     # print(post_predictions) 
     post_predictions = post_predictions.reset_index()
     stable_weight, risky_weight = wish_date_weight(post_predictions,date)
-    
-    
+     
     return stable_weight.drop("date", axis=1), risky_weight.drop("date", axis=1)
-
+   
 
 # date = "2022-08-30"
 # a, b = custom_model(date)
