@@ -3,6 +3,7 @@ import yfinance as yf
 import sys
 import pymysql
 from sqlalchemy import create_engine
+import datetime
 
 import logging
 
@@ -28,8 +29,10 @@ except pymysql.MySQLError as e:
   sys.exit()
 
 
-start='2017-01-01'
+
 now = datetime.datetime.now()
+previous = now - datetime.timedelta(days=1)
+start = previous.strftime("%Y-%m-%d")
 end = now.strftime("%Y-%m-%d")
 symbol = ['^IXIC','^FTSE','^N225','^STOXX50E','^KS11','^BVSP','^TWII','^BSESN', 'GC=F']
 df_nasdaq = yf.download(symbol[0], start, end)
@@ -88,17 +91,18 @@ df_gold['date'] = df_gold['date'].dt.strftime('%Y-%m-%d')
 
 
 # 테이블 이름 설정
-table_names = ['nasdaq', 'ftse', 'nikkei', 'euro', 'kospi','india', 'taiwan', 'brazil', 'kor3y', 'kor10y', 'us3y', 'us10y',  'gold']
+table_names = ['nasdaq', 'ftse', 'nikkei', 'euro', 'kospi','india', 'taiwan', 'brazil',  'gold']
 
 # DataFrame을 MySQL 테이블에 저장
 for i, df in enumerate([df_nasdaq, df_ftse, df_nikkei, df_euro, df_kospi, df_brazil, df_taiwan, df_india, df_gold]):
     table_name = table_names[i]
     
     # DataFrame을 MySQL 테이블로 저장
-    df.to_sql(name=table_name, con=connection, if_exists='replace', index=False)
+    df.to_sql(name=table_name, con=connection, if_exists='append', index=False)
 
     print(f"데이터 저장 완료: {table_name}")
 
+table_names = [ 'kor3y', 'kor10y', 'us3y', 'us10y']
 
 # new_df를 불러옵니다.
 new_df = pd.read_csv('bond.csv')
@@ -106,13 +110,16 @@ new_df = pd.read_csv('bond.csv')
 # 'date' 컬럼을 날짜 형식으로 변환하여 'yy-mm-dd' 형식으로 포맷팅합니다.
 new_df['date'] = pd.to_datetime(new_df['date']).dt.strftime('%Y-%m-%d')
 
-for col_name, table_name in zip(['kor3y', 'kor10y', 'us3y', 'us10y'], table_names[8:]):
+for col_name, table_name in zip(['kor3y', 'kor10y', 'us3y', 'us10y'], table_names):
     # date 컬럼을 날짜 형식으로 변환
     new_df['date'] = pd.to_datetime(new_df['date']).dt.strftime('%Y-%m-%d')
     
     # 컬럼명에 해당하는 데이터만 선택
     df = new_df[['date', col_name]]
     df.rename(columns={col_name: 'close'}, inplace=True)
+    df['open'] = 0
+    df['low'] = 0
+    df['high'] = 0
     
     # DataFrame을 MySQL 테이블로 저장
     df.to_sql(name=table_name, con=connection, if_exists='replace', index=False)
